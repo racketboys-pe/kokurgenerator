@@ -92,9 +92,10 @@
                 </button>
             </div>
             
-            <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
-                <!-- Input Nama Sekolah -->
-                <div>
+            <!-- Update: Changed grid cols to 3 to accommodate new input -->
+            <div class="p-6 grid grid-cols-1 md:grid-cols-12 gap-6">
+                <!-- Input Nama Sekolah (Lebih lebar) -->
+                <div class="md:col-span-6">
                     <label class="block text-sm font-semibold text-slate-700 mb-2">Nama Sekolah</label>
                     <div class="relative">
                         <i data-lucide="school" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400"></i>
@@ -104,14 +105,29 @@
                 </div>
 
                 <!-- Input Kelas Mulai -->
-                <div>
-                    <label class="block text-sm font-semibold text-slate-700 mb-2">Mulai Kokurikuler di Kelas</label>
+                <div class="md:col-span-3">
+                    <label class="block text-sm font-semibold text-slate-700 mb-2">Mulai Kelas</label>
                     <select id="start-grade" onchange="updateInputLabels()" class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition bg-white">
                         <option value="1">Kelas 1 (Awal Fase A)</option>
                         <option value="2">Kelas 2</option>
                         <option value="3">Kelas 3 (Awal Fase B)</option>
                         <option value="4">Kelas 4</option>
                     </select>
+                </div>
+
+                <!-- Input Jumlah DPL (FITUR BARU) -->
+                <div class="md:col-span-3">
+                    <label class="block text-sm font-semibold text-slate-700 mb-2">Target DPL / Semester</label>
+                    <div class="relative">
+                         <i data-lucide="layers" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 z-10 pointer-events-none"></i>
+                        <select id="dpl-count" class="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition bg-white cursor-pointer hover:bg-slate-50">
+                            <option value="1">1 Dimensi</option>
+                            <option value="2" selected>2 Dimensi (Default)</option>
+                            <option value="3">3 Dimensi</option>
+                            <option value="4">4 Dimensi</option>
+                        </select>
+                    </div>
+                    <p class="text-xs text-slate-500 mt-1">Jumlah dimensi yang dikuatkan per semester.</p>
                 </div>
             </div>
         </section>
@@ -239,7 +255,7 @@
             <div class="p-6 space-y-4 max-h-[70vh] overflow-y-auto text-sm text-slate-600">
                 <ol class="list-decimal pl-5 space-y-2 marker:font-bold marker:text-indigo-600">
                     <li><strong>Isi Data Sekolah:</strong> Masukkan nama sekolah Anda pada kolom yang tersedia.</li>
-                    <li><strong>Tentukan Awal:</strong> Pilih kelas berapa kokurikuler mulai diterapkan (misal: Kelas 1 atau Kelas 4).</li>
+                    <li><strong>Atur Kelas & Target:</strong> Pilih kelas awal dan jumlah DPL yang ingin dikuatkan per semester (Standard: 2).</li>
                     <li><strong>Input Data Awal:</strong> Centang dimensi (DPL) yang sudah atau akan dilaksanakan pada tahun pertama (Semester 1 & 2).</li>
                     <li><strong>Generate:</strong> Klik tombol "Generate Roadmap". Sistem akan otomatis merencanakan dimensi untuk kelas-kelas berikutnya.</li>
                     <li><strong>Cari Data Online:</strong> Jika Anda pernah menyimpan data sebelumnya, klik tombol ini dan masukkan nama sekolah untuk memuat ulang data.</li>
@@ -307,6 +323,8 @@
                 <th>Semester</th>
                 <th>Dimensi 1</th>
                 <th>Dimensi 2</th>
+                <th>Dimensi 3</th>
+                <th>Dimensi 4</th>
             </tr>
         </thead>
         <tbody id="export-body"></tbody>
@@ -383,6 +401,7 @@
             document.getElementById('results-area').classList.add('hidden');
             document.getElementById('school-name').value = "";
             document.getElementById('start-grade').value = "1";
+            document.getElementById('dpl-count').value = "2"; // Reset new input
             updateInputLabels();
             window.scrollTo({ top: 0, behavior: 'smooth' });
             generatedRoadmapData = null;
@@ -415,6 +434,9 @@
                 return;
             }
 
+            // Get selected DPL count per semester
+            const dimsPerSem = parseInt(document.getElementById('dpl-count').value) || 2;
+
             [...inputS1, ...inputS2].forEach(id => usageCounts[id]++);
 
             const roadmap = {};
@@ -423,8 +445,6 @@
             }
 
             roadmap[currentStartGrade] = { s1: inputS1, s2: inputS2, status: 'manual' };
-
-            const dimsPerSem = 2;
 
             for (let grade = currentStartGrade + 1; grade <= 6; grade++) {
                 roadmap[grade] = {
@@ -478,25 +498,26 @@
             tbody.innerHTML = ''; 
 
             const getDimName = (arr, idx) => arr[idx] ? getDimensionObj(arr[idx]).full : '-';
+            // Determine max columns for excel based on max array length found
+            const maxDims = Math.max(
+                ...Object.values(map).map(g => Math.max(g.s1.length, g.s2.length))
+            );
 
             for (let grade = 1; grade <= 6; grade++) {
                 const data = map[grade];
                 
                 if (data.status !== 'skipped') {
-                    // Semester 1
-                    tbody.innerHTML += `<tr>
-                        <td>${grade}</td>
-                        <td>1</td>
-                        <td>${getDimName(data.s1, 0)}</td>
-                        <td>${getDimName(data.s1, 1)}</td>
-                    </tr>`;
-                    // Semester 2
-                    tbody.innerHTML += `<tr>
-                        <td>${grade}</td>
-                        <td>2</td>
-                        <td>${getDimName(data.s2, 0)}</td>
-                        <td>${getDimName(data.s2, 1)}</td>
-                    </tr>`;
+                    // Semester 1 Row
+                    let row1 = `<tr><td>${grade}</td><td>1</td>`;
+                    for(let i=0; i<maxDims; i++) row1 += `<td>${getDimName(data.s1, i)}</td>`;
+                    row1 += `</tr>`;
+                    tbody.innerHTML += row1;
+
+                    // Semester 2 Row
+                    let row2 = `<tr><td>${grade}</td><td>2</td>`;
+                    for(let i=0; i<maxDims; i++) row2 += `<td>${getDimName(data.s2, i)}</td>`;
+                    row2 += `</tr>`;
+                    tbody.innerHTML += row2;
                 }
 
                 let gradeLabel = `Kelas ${grade}`;
